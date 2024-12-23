@@ -17,3 +17,5 @@ data/
 
 # Environment variables
 .env
+
+docker-compose.yml
