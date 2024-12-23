@@ -1,0 +1,25 @@
+services:
+  uv-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uv-container
+    working_dir: /app
+    tty: true
+    entrypoint: ["uv", "run", "main.py"]
+    volumes:
+      - ./data:/app/data
+    environment:
+      - LANG=C.UTF-8
+      - DEBIAN_FRONTEND=noninteractive
+      - TZ=America/Costa_Rica
+      - HTTP_USER=${HTTP_USER}
+      - HTTP_PASSWORD=${HTTP_PASSWORD}
+      - DB_TYPE=${DB_TYPE}
+      - DB_URL=${DB_URL}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - RCLONE_REMOTE=${RCLONE_REMOTE}
+      - RCLONE_OPTIONS=${RCLONE_OPTIONS}
+      - RCLONE_CONFIG=${RCLONE_CONFIG}
+    command: ["--url", "https://tk.teamkurosaki-vip2.workers.dev/0:/Series%20Anime/Series%20Anime%20Latino/F/%5BTK%5D%20Fire%20Force%20-%20mayqy204%20&%20Rolando96/", "--site_type", "achrou/goindex", "--simultaneous", "5", "--limit", "40", "--stats-one-line", "--use-auth", "--group-name", "TK", "--base-folder", "/app/data"]
