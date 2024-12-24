@@ -43,3 +43,5 @@ WORKDIR /app
 
 # Copy the application from the build stage
 COPY --from=build /app /app
+
+ENTRYPOINT [ "uv", "run", "main.py" ]

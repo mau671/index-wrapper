@@ -6,7 +6,6 @@ services:
     container_name: index-scrapper
     working_dir: /app
     tty: true
-    entrypoint: ["uv", "run", "main.py"]
     volumes:
       - ./data:/app/data
     environment:

@@ -82,6 +82,30 @@ To build and run the project using Docker:
     docker run --env-file .env -v /path/to/downloads:/app/downloads index-wrapper
     ```
 
+## Docker compose
+```yml
+services:
+  app:
+    image: ghcr.io/mau671/index-wrapper:latest
+    container_name: index-scrapper
+    working_dir: /app
+    tty: true
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=America/Costa_Rica
+      - HTTP_USER=example_user
+      - HTTP_PASSWORD=example_password
+      - DB_TYPE=ExampleDB
+      - DB_URL=https://example.supabase.co
+      - DB_USER=example_db_user
+      - DB_PASSWORD=example_db_password
+      - RCLONE_REMOTE=example_remote
+      - RCLONE_OPTIONS=example_options
+      - RCLONE_CONFIG=/example/path/to/rclone/config
+    command: ["--url", "https://example.url/path", "--site_type", "achrou/goindex", "--simultaneous", "3", "--limit", "10", "--stats-one-line", "--use-auth", "--group-name", "ExampleGroup", "--base-folder", "/app/data", "--delete-after"]
+```
+
 ## Contributing
 
 Contributions are welcome! Please fork the repository and submit a pull request.
