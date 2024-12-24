@@ -23,26 +23,46 @@ def get_chrome_version() -> Optional[str]:
         print(f"Error getting Chrome version: {e}")
         return None
 
-def is_chromedriver_compatible(chrome_version: str) -> bool:
+def is_chromedriver_compatible(driver_path: str, chrome_version: str) -> bool:
     """
-    Checks if the existing chromedriver matches the specified Chrome version.
+    Checks if the given chromedriver matches the specified Chrome version.
 
     Args:
+        driver_path (str): Path to the chromedriver executable.
         chrome_version (str): The version of Google Chrome installed on the system.
 
     Returns:
         bool: True if the chromedriver exists and is compatible, False otherwise.
     """
-    if not os.path.exists(CHROMEDRIVER_PATH):
+    if not os.path.exists(driver_path):
         return False
 
     try:
-        result = subprocess.run([CHROMEDRIVER_PATH, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run([driver_path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         chromedriver_version = result.stdout.decode("utf-8").strip().split(" ")[1]
         return chrome_version.startswith(chromedriver_version.split('.')[0])
     except Exception as e:
-        print(f"Error checking chromedriver version: {e}")
+        print(f"Error checking chromedriver version at {driver_path}: {e}")
         return False
+
+def find_chromedriver_in_path(chrome_version: str) -> Optional[str]:
+    """
+    Checks if a compatible chromedriver exists in the system PATH.
+
+    Args:
+        chrome_version (str): The version of Google Chrome installed on the system.
+
+    Returns:
+        str: Path to the compatible chromedriver if found, None otherwise.
+    """
+    try:
+        result = subprocess.run(["which", "chromedriver"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        chromedriver_path = result.stdout.decode("utf-8").strip()
+        if chromedriver_path and is_chromedriver_compatible(chromedriver_path, chrome_version):
+            return chromedriver_path
+    except Exception as e:
+        print(f"Error finding chromedriver in PATH: {e}")
+    return None
 
 def download_chromedriver(chrome_version: str) -> Optional[str]:
     """
@@ -94,15 +114,24 @@ def setup_chromedriver() -> Optional[str]:
         None: If the setup process failed.
     """
     chrome_version = get_chrome_version()
-    if chrome_version:
-        if is_chromedriver_compatible(chrome_version):
-            print(f"Compatible chromedriver already exists at: {CHROMEDRIVER_PATH}")
-            return os.path.abspath(CHROMEDRIVER_PATH)
-        else:
-            return download_chromedriver(chrome_version)
-    else:
+    if not chrome_version:
         print("Failed to retrieve Chrome version.")
         return None
+
+    # Check for chromedriver in system PATH
+    chromedriver_path = find_chromedriver_in_path(chrome_version)
+    if chromedriver_path:
+        print(f"Using chromedriver from PATH: {chromedriver_path}")
+        return chromedriver_path
+
+    # Check for chromedriver in the drivers directory
+    if is_chromedriver_compatible(CHROMEDRIVER_PATH, chrome_version):
+        print(f"Using chromedriver from drivers directory: {CHROMEDRIVER_PATH}")
+        return os.path.abspath(CHROMEDRIVER_PATH)
+
+    # Download and set up a new chromedriver
+    print("Downloading a new chromedriver...")
+    return download_chromedriver(chrome_version)
 
 if __name__ == "__main__":
     chromedriver_path = setup_chromedriver()
