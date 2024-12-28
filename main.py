@@ -19,7 +19,7 @@ from rich.progress import (
     Task,
 )
 from queue import Queue
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 # Service and utility imports
 from services.uploader import upload_file
@@ -47,6 +47,20 @@ def handle_exit(signal: int, frame: Optional[object]) -> None:
     print("\nCancelling downloads and exiting the program...")
     exit(0)
 
+def parse_filter_range(filter_value: str) -> Tuple[int, int]:
+    """
+    Parses a range in the form '12-20' and returns (12, 20).
+    If the format is not valid, raises ValueError.
+    """
+    pattern = r'^(\d+)-(\d+)$'
+    match = re.match(pattern, filter_value.strip())
+    if not match:
+        raise ValueError("The --filter argument must be a range in the format 'start-end'.")
+    start, end = match.groups()
+    start, end = int(start), int(end)
+    if start > end:
+        raise ValueError("The start of the range cannot be greater than the end.")
+    return start, end
 
 def analyze_and_download(
     url: str,
@@ -58,7 +72,7 @@ def analyze_and_download(
     group_name: Optional[str],
     files_limit: Optional[int],
     stats_one_line: bool,
-    last: Optional[int],
+    filter_range: Optional[str],
     base_folder: Optional[str],
 ) -> None:
     """
@@ -74,7 +88,7 @@ def analyze_and_download(
         group_name (Optional[str]): Group name for cloud upload.
         files_limit (Optional[int]): Limit of files to download in a batch.
         stats_one_line (bool): Whether to display progress in a single line.
-        last (Optional[int]): Download only the last N files.
+        filter_range (Optional[str]): Rango de archivos a descargar en formato "inicio-fin".
         base_folder (Optional[str]): Base folder for downloading and processing files.
     """
     print("Analyzing link...", end="", flush=True)
@@ -87,6 +101,22 @@ def analyze_and_download(
 
     print(f"\rFound {len(links)} files, starting download.")
 
+    # ----------------------------------------------------------------
+    # Filter handling: filter files according to the requested range.
+    # ----------------------------------------------------------------
+    if filter_range:
+        try:
+            start, end = parse_filter_range(filter_range)
+            # Adjustment if the indices are 1-based:
+            # links[0] would correspond to the first file
+            # Therefore, to download 12-20,
+            # the slicing would be links[11:20].
+            links = links[start-1:end]
+            print(f"Filtering files from {start} to {end}. Total after filter: {len(links)}")
+        except ValueError as e:
+            print(f"Error in filter range: {e}")
+            return
+
     if base_folder:
         base_folder = os.path.join(base_folder, url_to_folder_path(url, site_type))
     else:
@@ -95,10 +125,6 @@ def analyze_and_download(
     os.makedirs(base_folder, exist_ok=True)
 
     semaphore = Semaphore(simultaneous_downloads)
-
-    if last:
-        # Download only the last N files
-        links = links[-last:]
 
     while links:
         current_batch = links[:files_limit] if files_limit else links
@@ -377,8 +403,10 @@ if __name__ == "__main__":
         help="Print progress stats in a single line",
     )
     parser.add_argument(
-        "--last", type=int, help="Download only the last N files from the link"
-    )
+            "--filter",
+            type=str,
+            help="Rango de archivos a descargar en el formato 'inicio-fin' (ejemplo: 12-20)",
+        )
     parser.add_argument(
         "--use-auth",
         action="store_true",
@@ -409,6 +437,6 @@ if __name__ == "__main__":
         group_name=args.group_name,  # Group name for cloud upload
         files_limit=args.limit,  # Limit of files to download per batch
         stats_one_line=args.stats_one_line,  # Whether to show progress in a single line
-        last=args.last,  # Number of last files to download
+        filter_range=args.filter, # File range to download
         base_folder=args.base_folder,  # Base folder for downloading and processing files
     )
