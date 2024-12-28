@@ -25,10 +25,15 @@ from typing import List, Dict, Optional
 from services.uploader import upload_file
 from services.downloader import analyze_link, download_and_process_file
 from utils.file import url_to_folder_path, get_hash_md5
-from services.extractor import get_password_from_database, save_password_to_database, obtain_password
+from services.extractor import (
+    get_password_from_database,
+    save_password_to_database,
+    obtain_password,
+)
 
 # Global variable to handle script interruption
 stop_event = Event()
+
 
 def handle_exit(signal: int, frame: Optional[object]) -> None:
     """
@@ -41,6 +46,7 @@ def handle_exit(signal: int, frame: Optional[object]) -> None:
     stop_event.set()
     print("\nCancelling downloads and exiting the program...")
     exit(0)
+
 
 def analyze_and_download(
     url: str,
@@ -85,7 +91,7 @@ def analyze_and_download(
         base_folder = os.path.join(base_folder, url_to_folder_path(url, site_type))
     else:
         base_folder = url_to_folder_path(url, site_type)
-        
+
     os.makedirs(base_folder, exist_ok=True)
 
     semaphore = Semaphore(simultaneous_downloads)
@@ -108,13 +114,23 @@ def analyze_and_download(
 
         if stats_one_line:
             handle_progress_single_line(
-                download_queue, total_size, site_type, semaphore,
-                base_folder, delete_after, part_files
+                download_queue,
+                total_size,
+                site_type,
+                semaphore,
+                base_folder,
+                delete_after,
+                part_files,
             )
         else:
             handle_progress_multi_line(
-                download_queue, total_size, site_type, semaphore,
-                base_folder, delete_after, part_files
+                download_queue,
+                total_size,
+                site_type,
+                semaphore,
+                base_folder,
+                delete_after,
+                part_files,
             )
 
         if part_files:
@@ -124,6 +140,7 @@ def analyze_and_download(
             upload_file(base_folder, group_name if group_name else "TK")
 
     print("All downloads and uploads completed.")
+
 
 def calculate_total_size(links: List[str]) -> int:
     """
@@ -136,9 +153,10 @@ def calculate_total_size(links: List[str]) -> int:
         int: Total size of all files in bytes.
     """
     return sum(
-        int(requests.get(link, stream=True).headers.get('content-length', 0))
+        int(requests.get(link, stream=True).headers.get("content-length", 0))
         for link in links
     )
+
 
 def handle_progress_single_line(
     download_queue: Queue,
@@ -160,11 +178,22 @@ def handle_progress_single_line(
         TaskProgressColumn(),
         DownloadColumn(),
     ) as progress:
-        title = base_folder.split('/')[-1]
+        title = base_folder.split("/")[-1]
         series_task = progress.add_task(
-            f"[cyan]{title[:15] + '...' if len(title) > 15 else title}", total=total_size
+            f"[cyan]{title[:15] + '...' if len(title) > 15 else title}",
+            total=total_size,
         )
-        handle_tasks(download_queue, series_task, progress, site_type, semaphore, base_folder, delete_after, part_files)
+        handle_tasks(
+            download_queue,
+            series_task,
+            progress,
+            site_type,
+            semaphore,
+            base_folder,
+            delete_after,
+            part_files,
+        )
+
 
 def handle_progress_multi_line(
     download_queue: Queue,
@@ -190,8 +219,20 @@ def handle_progress_multi_line(
         TransferSpeedColumn(),
         TimeRemainingColumn(),
     ) as progress:
-        series_task = progress.add_task(f"[cyan]{base_folder.split('/')[-1]}", total=total_size)
-        handle_tasks(download_queue, series_task, progress, site_type, semaphore, base_folder, delete_after, part_files)
+        series_task = progress.add_task(
+            f"[cyan]{base_folder.split('/')[-1]}", total=total_size
+        )
+        handle_tasks(
+            download_queue,
+            series_task,
+            progress,
+            site_type,
+            semaphore,
+            base_folder,
+            delete_after,
+            part_files,
+        )
+
 
 def handle_tasks(
     download_queue: Queue,
@@ -213,14 +254,26 @@ def handle_tasks(
     while not download_queue.empty() or any(task.is_alive() for task in tasks):
         while not download_queue.empty() and len(tasks) < semaphore._value:
             url = download_queue.get()
-            local_filename = unquote(url.split('/')[-1])
+            local_filename = unquote(url.split("/")[-1])
             task_id = progress.add_task(
-                f" └─{local_filename[:15] + '...' if len(local_filename) > 15 else local_filename}", start=True
+                f" └─{local_filename[:15] + '...' if len(local_filename) > 15 else local_filename}",
+                start=True,
             )
 
             task_thread = Thread(
                 target=download_and_process_file,
-                args=(url, site_type, semaphore, progress, task_id, series_task, base_folder, delete_after, part_files, stop_event)
+                args=(
+                    url,
+                    site_type,
+                    semaphore,
+                    progress,
+                    task_id,
+                    series_task,
+                    base_folder,
+                    delete_after,
+                    part_files,
+                    stop_event,
+                ),
             )
             task_thread.start()
             tasks.append(task_thread)
@@ -228,7 +281,10 @@ def handle_tasks(
         tasks = [task for task in tasks if task.is_alive()]
         time.sleep(1)
 
-def process_part_files(part_files: Dict[str, str], base_folder: str, delete_after: bool) -> None:
+
+def process_part_files(
+    part_files: Dict[str, str], base_folder: str, delete_after: bool
+) -> None:
     """
     Processes part files by extracting them.
 
@@ -239,8 +295,9 @@ def process_part_files(part_files: Dict[str, str], base_folder: str, delete_afte
     """
     print("\nProcessing multipart compressed files...")
     first_parts = [
-        path for name, path in part_files.items()
-        if re.search(r'\.part0*1\.rar$|\.parte0*1\.rar$', name)
+        path
+        for name, path in part_files.items()
+        if re.search(r"\.part0*1\.rar$|\.parte0*1\.rar$", name)
     ]
 
     for first_part in first_parts:
@@ -250,18 +307,26 @@ def process_part_files(part_files: Dict[str, str], base_folder: str, delete_afte
         if not password:
             password = obtain_password(first_part)
             if password:
-                save_password_to_database(os.path.basename(first_part), hash_md5, password)
+                save_password_to_database(
+                    os.path.basename(first_part), hash_md5, password
+                )
 
         if password:
             try:
                 os.makedirs(base_folder, exist_ok=True)
                 patoolib.extract_archive(
-                    first_part, verbosity=-1, program="unrar", interactive=False, outdir=base_folder, password=password
+                    first_part,
+                    verbosity=-1,
+                    program="unrar",
+                    interactive=False,
+                    outdir=base_folder,
+                    password=password,
                 )
             except Exception as e:
                 print(f"Error extracting {first_part}: {e}")
         if delete_after:
             os.remove(first_part)
+
 
 if __name__ == "__main__":
     # Handle SIGINT (Ctrl+C) gracefully to terminate the script
@@ -271,44 +336,79 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Downloader and Decompressor")
 
     # Define command-line arguments
-    parser.add_argument('--url', type=str, required=True, 
-                        help='The URL to download from')
-    parser.add_argument('--site_type', type=str, required=True, 
-                        choices=["donwa/goindex", "maple3142/GDIndex", "achrou/goindex", "spencerwooo/onedrive"], 
-                        help='The type of the site to process')
-    parser.add_argument('--simultaneous', type=int, default=3, 
-                        help='The number of simultaneous downloads allowed')
-    parser.add_argument('--delete-after', action='store_true', 
-                        help='Delete the original file after decompression')
-    parser.add_argument('--upload', action='store_true', default=False, 
-                        help='Upload the downloaded and processed files to a cloud using rclone')
-    parser.add_argument('--limit', type=int, 
-                        help='Limit the number of files to download in one batch')
-    parser.add_argument('--stats-one-line', action='store_true', 
-                        help='Print progress stats in a single line')
-    parser.add_argument('--last', type=int, 
-                        help='Download only the last N files from the link')
-    parser.add_argument('--use-auth', action='store_true', 
-                        help='Use HTTP authentication for downloading')
-    parser.add_argument('--group-name', type=str, 
-                        help='Specify a group name for cloud upload organization')
-    parser.add_argument('--base-folder', type=str,
-                        help='Specify a base folder for downloading and processing files')
+    parser.add_argument(
+        "--url", type=str, required=True, help="The URL to download from"
+    )
+    parser.add_argument(
+        "--site_type",
+        type=str,
+        required=True,
+        choices=[
+            "donwa/goindex",
+            "maple3142/GDIndex",
+            "achrou/goindex",
+            "spencerwooo/onedrive",
+        ],
+        help="The type of the site to process",
+    )
+    parser.add_argument(
+        "--simultaneous",
+        type=int,
+        default=3,
+        help="The number of simultaneous downloads allowed",
+    )
+    parser.add_argument(
+        "--delete-after",
+        action="store_true",
+        help="Delete the original file after decompression",
+    )
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        default=False,
+        help="Upload the downloaded and processed files to a cloud using rclone",
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Limit the number of files to download in one batch"
+    )
+    parser.add_argument(
+        "--stats-one-line",
+        action="store_true",
+        help="Print progress stats in a single line",
+    )
+    parser.add_argument(
+        "--last", type=int, help="Download only the last N files from the link"
+    )
+    parser.add_argument(
+        "--use-auth",
+        action="store_true",
+        help="Use HTTP authentication for downloading",
+    )
+    parser.add_argument(
+        "--group-name",
+        type=str,
+        help="Specify a group name for cloud upload organization",
+    )
+    parser.add_argument(
+        "--base-folder",
+        type=str,
+        help="Specify a base folder for downloading and processing files",
+    )
 
     # Parse command-line arguments
     args = parser.parse_args()
 
     # Call the main function to analyze the link and start the download process
     analyze_and_download(
-        url=args.url,                       # URL to process
-        site_type=args.site_type,           # Type of site (e.g., GoIndex, OneDrive)
-        use_auth=args.use_auth,             # Whether HTTP authentication is enabled
+        url=args.url,  # URL to process
+        site_type=args.site_type,  # Type of site (e.g., GoIndex, OneDrive)
+        use_auth=args.use_auth,  # Whether HTTP authentication is enabled
         simultaneous_downloads=args.simultaneous,  # Number of simultaneous downloads
-        delete_after=args.delete_after,     # Whether to delete files after decompression
-        upload=args.upload,                 # Whether to upload files to a cloud
-        group_name=args.group_name,         # Group name for cloud upload
-        files_limit=args.limit,             # Limit of files to download per batch
-        stats_one_line=args.stats_one_line, # Whether to show progress in a single line
-        last=args.last,                     # Number of last files to download
-        base_folder=args.base_folder        # Base folder for downloading and processing files
+        delete_after=args.delete_after,  # Whether to delete files after decompression
+        upload=args.upload,  # Whether to upload files to a cloud
+        group_name=args.group_name,  # Group name for cloud upload
+        files_limit=args.limit,  # Limit of files to download per batch
+        stats_one_line=args.stats_one_line,  # Whether to show progress in a single line
+        last=args.last,  # Number of last files to download
+        base_folder=args.base_folder,  # Base folder for downloading and processing files
     )

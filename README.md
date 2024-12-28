@@ -88,7 +88,6 @@ services:
   app:
     image: ghcr.io/mau671/index-wrapper:latest
     container_name: index-scrapper
-    working_dir: /app
     tty: true
     volumes:
       - ./data:/app/data

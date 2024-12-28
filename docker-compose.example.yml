@@ -21,4 +21,4 @@ services:
       - RCLONE_REMOTE=example_remote
       - RCLONE_OPTIONS=example_options
       - RCLONE_CONFIG=/example/path/to/rclone/config
-    command: ["--url", "https://example.url/path", "--site_type", "achrou/goindex", "--simultaneous", "3", "--limit", "10", "--stats-one-line", "--use-auth", "--group-name", "ExampleGroup", "--base-folder", "/app/data"]
+    command: ["--url", "https://example.url/path", "--site_type", "achrou/goindex", "--simultaneous", "3", "--limit", "10", "--stats-one-line", "--use-auth", "--group-name", "ExampleGroup", "--base-folder", "/app/data", "--delete-after"]

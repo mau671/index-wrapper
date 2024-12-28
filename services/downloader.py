@@ -16,8 +16,13 @@ from threading import Event
 
 from config import HTTP_USER, HTTP_PASSWORD
 from utils.file import is_parted, get_hash_md5
-from services.extractor import get_password_from_database, save_password_to_database, obtain_password
+from services.extractor import (
+    get_password_from_database,
+    save_password_to_database,
+    obtain_password,
+)
 from utils.driver import setup_chromedriver
+
 
 def configure_webdriver() -> webdriver.Chrome:
     """
@@ -27,17 +32,18 @@ def configure_webdriver() -> webdriver.Chrome:
         webdriver.Chrome: Configured Chrome WebDriver instance.
     """
     options = webdriver.ChromeOptions()
-    options.add_argument('--no-sandbox')
-    options.add_argument('--headless')
-    options.add_argument('--log-level=3')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--disable-gpu')
+    options.add_argument("--no-sandbox")
+    options.add_argument("--headless")
+    options.add_argument("--log-level=3")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--ignore-certificate-errors")
+    options.add_argument("--disable-gpu")
     options.add_argument("start-maximized")
-    options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
     service = ChromeService(executable_path=setup_chromedriver())
     return webdriver.Chrome(service=service, options=options)
+
 
 def analyze_link(url: str, site_type: str, use_auth: bool) -> List[str]:
     """
@@ -71,6 +77,7 @@ def analyze_link(url: str, site_type: str, use_auth: bool) -> List[str]:
     finally:
         driver.quit()
 
+
 def _extract_goindex_links(driver: webdriver.Chrome, base_url: str) -> List[str]:
     """
     Extracts links from GoIndex pages.
@@ -82,7 +89,9 @@ def _extract_goindex_links(driver: webdriver.Chrome, base_url: str) -> List[str]
     Returns:
         List[str]: Extracted links.
     """
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.TAG_NAME, "body"))
+    )
     last_height = driver.execute_script("return document.body.scrollHeight")
 
     while True:
@@ -93,9 +102,12 @@ def _extract_goindex_links(driver: webdriver.Chrome, base_url: str) -> List[str]
             break
         last_height = new_height
 
-    rows = driver.find_elements(By.XPATH, '//tbody/tr')
+    rows = driver.find_elements(By.XPATH, "//tbody/tr")
     base_download_url = base_url.replace("0:", "0:down")
-    return [f"{base_download_url}{row.find_element(By.TAG_NAME, 'td').get_attribute('title')}" for row in rows]
+    return [
+        f"{base_download_url}{row.find_element(By.TAG_NAME, 'td').get_attribute('title')}"
+        for row in rows
+    ]
 
 
 def _extract_gdindex_links(driver: webdriver.Chrome) -> List[str]:
@@ -108,9 +120,15 @@ def _extract_gdindex_links(driver: webdriver.Chrome) -> List[str]:
     Returns:
         List[str]: Extracted links.
     """
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
-    links = driver.find_elements(By.XPATH, '//a')
-    return [link.get_attribute('href') for link in links if link.get_attribute('href').endswith(('rar', 'zip'))]
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.TAG_NAME, "body"))
+    )
+    links = driver.find_elements(By.XPATH, "//a")
+    return [
+        link.get_attribute("href")
+        for link in links
+        if link.get_attribute("href").endswith(("rar", "zip"))
+    ]
 
 
 def _extract_onedrive_links(driver: webdriver.Chrome, base_url: str) -> List[str]:
@@ -124,14 +142,19 @@ def _extract_onedrive_links(driver: webdriver.Chrome, base_url: str) -> List[str
     Returns:
         List[str]: Extracted links.
     """
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'col-span-12')))
-    elements = driver.find_elements(By.XPATH, "//a[@class='col-span-12 md:col-span-10']")
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CLASS_NAME, "col-span-12"))
+    )
+    elements = driver.find_elements(
+        By.XPATH, "//a[@class='col-span-12 md:col-span-10']"
+    )
     return [
-        element.get_attribute('href').replace(
-            urlparse(element.get_attribute('href')).netloc,
-            urlparse(element.get_attribute('href')).netloc + '/api/raw/?path='
+        element.get_attribute("href").replace(
+            urlparse(element.get_attribute("href")).netloc,
+            urlparse(element.get_attribute("href")).netloc + "/api/raw/?path=",
         )
-        for element in elements if not element.get_attribute('href').endswith('/')
+        for element in elements
+        if not element.get_attribute("href").endswith("/")
     ]
 
 
@@ -145,7 +168,7 @@ def download_and_process_file(
     base_folder: str,
     delete_after: bool,
     part_files: Dict[str, str],
-    stop_event: Event
+    stop_event: Event,
 ) -> None:
     """
     Downloads a file from a URL and processes it (e.g., extraction, password handling).
@@ -166,7 +189,7 @@ def download_and_process_file(
         if stop_event.is_set():
             return
 
-        local_filename = unquote(url.split('/')[-1])
+        local_filename = unquote(url.split("/")[-1])
         download_path = os.path.join(base_folder, local_filename)
 
         os.makedirs(base_folder, exist_ok=True)
@@ -175,7 +198,7 @@ def download_and_process_file(
         if is_parted(local_filename):
             part_files[local_filename] = download_path
             print(f"Part file added: {local_filename}")
-        elif local_filename.endswith('.rar'):
+        elif local_filename.endswith(".rar"):
             _process_rar_file(download_path, base_folder, delete_after)
     except Exception as e:
         print(f"Error downloading or processing {local_filename}: {e}")
@@ -190,7 +213,7 @@ def _download_file(
     progress: Progress,
     task: Task,
     series_task: Task,
-    stop_event: Event
+    stop_event: Event,
 ) -> None:
     """
     Downloads a file from the given URL.
@@ -204,11 +227,11 @@ def _download_file(
     """
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
-        total_size = int(r.headers.get('content-length', 0))
+        total_size = int(r.headers.get("content-length", 0))
         downloaded_size = 0
         start_time = time.time()
 
-        with open(download_path, 'wb') as f:
+        with open(download_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=1048576):
                 if stop_event.is_set():
                     return
@@ -216,7 +239,9 @@ def _download_file(
                 downloaded_size += len(chunk)
                 elapsed_time = time.time() - start_time
                 speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
-                progress.update(task, completed=downloaded_size, total=total_size, speed=speed)
+                progress.update(
+                    task, completed=downloaded_size, total=total_size, speed=speed
+                )
                 progress.update(series_task, advance=len(chunk))
 
 
@@ -239,6 +264,13 @@ def _process_rar_file(file_path: str, output_path: str, delete_after: bool) -> N
 
     if password:
         os.makedirs(output_path, exist_ok=True)
-        patoolib.extract_archive(file_path, verbosity=-1, program="unrar", interactive=False, outdir=output_path, password=password)
+        patoolib.extract_archive(
+            file_path,
+            verbosity=-1,
+            program="unrar",
+            interactive=False,
+            outdir=output_path,
+            password=password,
+        )
     if delete_after:
         os.remove(file_path)

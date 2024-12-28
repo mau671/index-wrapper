@@ -7,6 +7,7 @@ from typing import Optional
 DRIVERS_DIR = os.path.join(os.path.dirname(__file__), "../drivers/")
 CHROMEDRIVER_PATH = os.path.join(DRIVERS_DIR, "chromedriver")
 
+
 def get_chrome_version() -> Optional[str]:
     """
     Retrieves the installed version of Google Chrome.
@@ -23,6 +24,7 @@ def get_chrome_version() -> Optional[str]:
         print(f"Error getting Chrome version: {e}")
         return None
 
+
 def is_chromedriver_compatible(driver_path: str, chrome_version: str) -> bool:
     """
     Checks if the given chromedriver matches the specified Chrome version.
@@ -38,12 +40,15 @@ def is_chromedriver_compatible(driver_path: str, chrome_version: str) -> bool:
         return False
 
     try:
-        result = subprocess.run([driver_path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(
+            [driver_path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         chromedriver_version = result.stdout.decode("utf-8").strip().split(" ")[1]
-        return chrome_version.startswith(chromedriver_version.split('.')[0])
+        return chrome_version.startswith(chromedriver_version.split(".")[0])
     except Exception as e:
         print(f"Error checking chromedriver version at {driver_path}: {e}")
         return False
+
 
 def find_chromedriver_in_path(chrome_version: str) -> Optional[str]:
     """
@@ -56,13 +61,18 @@ def find_chromedriver_in_path(chrome_version: str) -> Optional[str]:
         str: Path to the compatible chromedriver if found, None otherwise.
     """
     try:
-        result = subprocess.run(["which", "chromedriver"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(
+            ["which", "chromedriver"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         chromedriver_path = result.stdout.decode("utf-8").strip()
-        if chromedriver_path and is_chromedriver_compatible(chromedriver_path, chrome_version):
+        if chromedriver_path and is_chromedriver_compatible(
+            chromedriver_path, chrome_version
+        ):
             return chromedriver_path
     except Exception as e:
         print(f"Error finding chromedriver in PATH: {e}")
     return None
+
 
 def download_chromedriver(chrome_version: str) -> Optional[str]:
     """
@@ -88,22 +98,32 @@ def download_chromedriver(chrome_version: str) -> Optional[str]:
         subprocess.run(f"wget -O {zip_path} {chromedriver_url}", shell=True, check=True)
 
         # Unzip the file
-        subprocess.run(f"unzip -o {zip_path} -d {os.path.dirname(__file__)}", shell=True, check=True)
+        subprocess.run(
+            f"unzip -o {zip_path} -d {os.path.dirname(__file__)}",
+            shell=True,
+            check=True,
+        )
 
         # Move the executable to the target directory
-        extracted_driver = os.path.join(os.path.dirname(__file__), "chromedriver-linux64/chromedriver")
+        extracted_driver = os.path.join(
+            os.path.dirname(__file__), "chromedriver-linux64/chromedriver"
+        )
         if os.path.exists(extracted_driver):
             shutil.move(extracted_driver, CHROMEDRIVER_PATH)
 
         # Clean up temporary files
         os.remove(zip_path)
-        shutil.rmtree(os.path.join(os.path.dirname(__file__), "chromedriver-linux64"), ignore_errors=True)
+        shutil.rmtree(
+            os.path.join(os.path.dirname(__file__), "chromedriver-linux64"),
+            ignore_errors=True,
+        )
 
         return os.path.abspath(CHROMEDRIVER_PATH)
 
     except Exception as e:
         print(f"Error downloading chromedriver: {e}")
         return None
+
 
 def setup_chromedriver() -> Optional[str]:
     """
@@ -132,6 +152,7 @@ def setup_chromedriver() -> Optional[str]:
     # Download and set up a new chromedriver
     print("Downloading a new chromedriver...")
     return download_chromedriver(chrome_version)
+
 
 if __name__ == "__main__":
     chromedriver_path = setup_chromedriver()
