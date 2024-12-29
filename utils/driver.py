@@ -1,6 +1,6 @@
-import os
 import subprocess
 from typing import Optional
+
 
 def setup_chromedriver() -> Optional[str]:
     """
@@ -8,7 +8,9 @@ def setup_chromedriver() -> Optional[str]:
     """
     try:
         # Search for 'chromedriver' in the PATH
-        result = subprocess.run(["which", "chromedriver"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(
+            ["which", "chromedriver"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         path = result.stdout.decode("utf-8").strip()
         if path:
             print(f"Using chromedriver at: {path}")
@@ -19,6 +21,7 @@ def setup_chromedriver() -> Optional[str]:
     except Exception as e:
         print(f"Error finding chromedriver: {e}")
         return None
+
 
 if __name__ == "__main__":
     chromedriver_path = setup_chromedriver()
