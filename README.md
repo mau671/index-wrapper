@@ -51,16 +51,16 @@ python main.py --url <URL> --site_type <SITE_TYPE> [options]
 ### Command Line Options
 
 - `--url`: The URL to download files from.
-- `--site_type`: The type of site (e.g., GoIndex, OneDrive).
-- `--use_auth`: Whether to use HTTP authentication (default: False).
+- `--site-type`: The type of site (e.g., GoIndex, OneDrive).
+- `--use-auth`: Whether to use HTTP authentication (default: False).
 - `--simultaneous`: Number of simultaneous downloads (default: 4).
-- `--delete_after`: Whether to delete files after decompression (default: False).
+- `--delete-after`: Whether to delete files after decompression (default: False).
 - `--upload`: Whether to upload files to a cloud (default: False).
-- `--group_name`: Group name for cloud upload.
+- `--group-name`: Group name for cloud upload.
 - `--limit`: Limit of files to download per batch.
-- `--stats_one_line`: Whether to show progress in a single line (default: False).
-- `--last`: Number of last files to download.
-- `--base_folder`: Base folder for downloading and processing files.
+- `--stats-one-line`: Whether to show progress in a single line (default: False).
+- `--filter`: Range to filter files (e.g., 10-20). Note: This includes the start and end values.
+- `--base-folder`: Base folder for downloading and processing files.
 
 ### Example
 
@@ -102,7 +102,7 @@ services:
       - RCLONE_REMOTE=example_remote
       - RCLONE_OPTIONS=example_options
       - RCLONE_CONFIG=/example/path/to/rclone/config
-    command: ["--url", "https://example.url/path", "--site_type", "achrou/goindex", "--simultaneous", "3", "--limit", "10", "--stats-one-line", "--use-auth", "--group-name", "ExampleGroup", "--base-folder", "/app/data", "--delete-after"]
+    command: ["--url", "https://example.url/path", "--site_type", "achrou/goindex", "--simultaneous", "3", "--filter", "10-20", "--stats-one-line", "--use-auth", "--group-name", "ExampleGroup", "--base-folder", "/app/data", "--delete-after"]
 ```
 
 ## Contributing

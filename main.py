@@ -47,20 +47,24 @@ def handle_exit(signal: int, frame: Optional[object]) -> None:
     print("\nCancelling downloads and exiting the program...")
     exit(0)
 
+
 def parse_filter_range(filter_value: str) -> Tuple[int, int]:
     """
     Parses a range in the form '12-20' and returns (12, 20).
     If the format is not valid, raises ValueError.
     """
-    pattern = r'^(\d+)-(\d+)$'
+    pattern = r"^(\d+)-(\d+)$"
     match = re.match(pattern, filter_value.strip())
     if not match:
-        raise ValueError("The --filter argument must be a range in the format 'start-end'.")
+        raise ValueError(
+            "The --filter argument must be a range in the format 'start-end'."
+        )
     start, end = match.groups()
     start, end = int(start), int(end)
     if start > end:
         raise ValueError("The start of the range cannot be greater than the end.")
     return start, end
+
 
 def analyze_and_download(
     url: str,
@@ -111,8 +115,10 @@ def analyze_and_download(
             # links[0] would correspond to the first file
             # Therefore, to download 12-20,
             # the slicing would be links[11:20].
-            links = links[start-1:end]
-            print(f"Filtering files from {start} to {end}. Total after filter: {len(links)}")
+            links = links[start - 1 : end]
+            print(
+                f"Filtering files from {start} to {end}. Total after filter: {len(links)}"
+            )
         except ValueError as e:
             print(f"Error in filter range: {e}")
             return
@@ -403,10 +409,10 @@ if __name__ == "__main__":
         help="Print progress stats in a single line",
     )
     parser.add_argument(
-            "--filter",
-            type=str,
-            help="Rango de archivos a descargar en el formato 'inicio-fin' (ejemplo: 12-20)",
-        )
+        "--filter",
+        type=str,
+        help="Rango de archivos a descargar en el formato 'inicio-fin' (ejemplo: 12-20)",
+    )
     parser.add_argument(
         "--use-auth",
         action="store_true",
@@ -437,6 +443,6 @@ if __name__ == "__main__":
         group_name=args.group_name,  # Group name for cloud upload
         files_limit=args.limit,  # Limit of files to download per batch
         stats_one_line=args.stats_one_line,  # Whether to show progress in a single line
-        filter_range=args.filter, # File range to download
+        filter_range=args.filter,  # File range to download
         base_folder=args.base_folder,  # Base folder for downloading and processing files
     )

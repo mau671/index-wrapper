@@ -3,6 +3,10 @@ import shutil
 import subprocess
 from typing import Optional
 
+import requests
+from rich.progress import Progress, BarColumn, DownloadColumn, TransferSpeedColumn
+import patoolib
+
 # Final path where the chromedriver will be saved
 DRIVERS_DIR = os.path.join(os.path.dirname(__file__), "../drivers/")
 CHROMEDRIVER_PATH = os.path.join(DRIVERS_DIR, "chromedriver")
@@ -74,6 +78,33 @@ def find_chromedriver_in_path(chrome_version: str) -> Optional[str]:
     return None
 
 
+def download_with_progress(url: str, output_path: str) -> None:
+    """
+    Downloads a file from 'url' to 'output_path' showing progress with 'rich'.
+    """
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+
+    total_size = int(response.headers.get("Content-Length", 0))
+    chunk_size = 1024 * 32
+
+    with Progress(
+        "[progress.description]{task.description}",
+        BarColumn(),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+    ) as progress:
+        download_task = progress.add_task(
+            "Downloading Chromedriver...", total=total_size
+        )
+
+        with open(output_path, "wb") as file:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    file.write(chunk)
+                    progress.update(download_task, advance=len(chunk))
+
+
 def download_chromedriver(chrome_version: str) -> Optional[str]:
     """
     Downloads and sets up the chromedriver executable for the specified Chrome version.
@@ -86,32 +117,26 @@ def download_chromedriver(chrome_version: str) -> Optional[str]:
         None: If the setup process failed.
     """
     try:
-        # Create target directory if it does not exist
         if not os.path.exists(DRIVERS_DIR):
             os.makedirs(DRIVERS_DIR)
 
-        # URL of the chromedriver zip file
-        chromedriver_url = f"https://storage.googleapis.com/chrome-for-testing-public/{chrome_version}/linux64/chromedriver-linux64.zip"
-
-        # Download the chromedriver zip file
-        zip_path = os.path.join(os.path.dirname(__file__), "chromedriver-linux64.zip")
-        subprocess.run(f"wget -O {zip_path} {chromedriver_url}", shell=True, check=True)
-
-        # Unzip the file
-        subprocess.run(
-            f"unzip -o {zip_path} -d {os.path.dirname(__file__)}",
-            shell=True,
-            check=True,
+        chromedriver_url = (
+            f"https://storage.googleapis.com/chrome-for-testing-public/"
+            f"{chrome_version}/linux64/chromedriver-linux64.zip"
         )
 
-        # Move the executable to the target directory
+        zip_path = os.path.join(os.path.dirname(__file__), "chromedriver-linux64.zip")
+
+        download_with_progress(chromedriver_url, zip_path)
+
+        patoolib.extract_archive(zip_path, verbosity=-1, program="unrar", interactive=False, outdir=os.path.dirname(__file__))
+
         extracted_driver = os.path.join(
             os.path.dirname(__file__), "chromedriver-linux64/chromedriver"
         )
         if os.path.exists(extracted_driver):
             shutil.move(extracted_driver, CHROMEDRIVER_PATH)
 
-        # Clean up temporary files
         os.remove(zip_path)
         shutil.rmtree(
             os.path.join(os.path.dirname(__file__), "chromedriver-linux64"),
@@ -138,18 +163,15 @@ def setup_chromedriver() -> Optional[str]:
         print("Failed to retrieve Chrome version.")
         return None
 
-    # Check for chromedriver in system PATH
     chromedriver_path = find_chromedriver_in_path(chrome_version)
     if chromedriver_path:
         print(f"Using chromedriver from PATH: {chromedriver_path}")
         return chromedriver_path
 
-    # Check for chromedriver in the drivers directory
     if is_chromedriver_compatible(CHROMEDRIVER_PATH, chrome_version):
         print(f"Using chromedriver from drivers directory: {CHROMEDRIVER_PATH}")
         return os.path.abspath(CHROMEDRIVER_PATH)
 
-    # Download and set up a new chromedriver
     print("Downloading a new chromedriver...")
     return download_chromedriver(chrome_version)
 
