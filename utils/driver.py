@@ -129,7 +129,7 @@ def download_chromedriver(chrome_version: str) -> Optional[str]:
 
         download_with_progress(chromedriver_url, zip_path)
 
-        patoolib.extract_archive(zip_path, verbosity=-1, program="unrar", interactive=False, outdir=os.path.dirname(__file__))
+        patoolib.extract_archive(zip_path, verbosity=-1, program="unzip", interactive=False, outdir=os.path.dirname(__file__))
 
         extracted_driver = os.path.join(
             os.path.dirname(__file__), "chromedriver-linux64/chromedriver"
