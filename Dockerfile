@@ -33,7 +33,7 @@ WORKDIR /app
 COPY . /app
 
 # Install project dependencies
-RUN uv sync --frozen --no-cache
+RUN uv sync --no-cache
 
 # Stage 3: Final lightweight runtime
 FROM base AS runtime
