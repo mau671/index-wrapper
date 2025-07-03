@@ -36,7 +36,7 @@ RUN apt-get update && \
         libxshmfence1 \
         libxfixes3 \
         xdg-utils \
-        unrar \
+        unrar-free \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
