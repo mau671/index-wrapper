@@ -1,9 +1,4 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service as ChromeService
-
+from playwright.sync_api import sync_playwright, Page
 from urllib.parse import urlparse, unquote
 import requests
 import os
@@ -21,28 +16,23 @@ from services.extractor import (
     save_password_to_database,
     obtain_password,
 )
-from utils.driver import setup_chromedriver
 
 
-def configure_webdriver() -> webdriver.Chrome:
-    """
-    Configures the Selenium WebDriver with appropriate options.
-
-    Returns:
-        webdriver.Chrome: Configured Chrome WebDriver instance.
-    """
-    options = webdriver.ChromeOptions()
-    options.add_argument("--no-sandbox")
-    options.add_argument("--headless")
-    options.add_argument("--log-level=3")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--ignore-certificate-errors")
-    options.add_argument("--disable-gpu")
-    options.add_argument("start-maximized")
-    options.add_experimental_option("excludeSwitches", ["enable-logging"])
-
-    service = ChromeService(executable_path=setup_chromedriver())
-    return webdriver.Chrome(service=service, options=options)
+def _launch_browser():
+    """Launch a headless Playwright Chromium browser with sensible defaults."""
+    playwright_context = sync_playwright().start()
+    browser = playwright_context.chromium.launch(
+        headless=True,
+        args=[
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--ignore-certificate-errors",
+            "--disable-gpu",
+        ],
+    )
+    context = browser.new_context(ignore_https_errors=True)
+    page = context.new_page()
+    return playwright_context, browser, page
 
 
 def analyze_link(url: str, site_type: str, use_auth: bool) -> List[str]:
@@ -57,105 +47,115 @@ def analyze_link(url: str, site_type: str, use_auth: bool) -> List[str]:
     Returns:
         List[str]: A list of extracted download links.
     """
-    driver = configure_webdriver()
+    playwright_context, browser, page = _launch_browser()
+
     try:
         if use_auth:
             url = url.replace("https://", f"https://{HTTP_USER}:{HTTP_PASSWORD}@")
-        driver.get(url)
+
+        # Navigate and wait for the initial DOM content.
+        page.goto(url, wait_until="domcontentloaded")
 
         if site_type in ["donwa/goindex", "achrou/goindex"]:
-            return _extract_goindex_links(driver, url)
+            links = _extract_goindex_links(page, url)
         elif site_type == "maple3142/GDIndex":
-            return _extract_gdindex_links(driver)
+            links = _extract_gdindex_links(page)
         elif site_type == "spencerwooo/onedrive":
-            return _extract_onedrive_links(driver, url)
+            links = _extract_onedrive_links(page, url)
         else:
-            return []
+            links = []
+
+        return links
     except Exception as e:
         print(f"Error analyzing link: {e}")
         return []
     finally:
-        driver.quit()
+        # Ensure resources are cleaned up properly.
+        browser.close()
+        playwright_context.stop()
 
 
-def _extract_goindex_links(driver: webdriver.Chrome, base_url: str) -> List[str]:
+def _extract_goindex_links(page: Page, base_url: str) -> List[str]:
     """
     Extracts links from GoIndex pages.
 
     Args:
-        driver (webdriver.Chrome): The Selenium WebDriver instance.
+        page (Page): The Playwright Page instance.
         base_url (str): Base URL of the GoIndex page.
 
     Returns:
         List[str]: Extracted links.
     """
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.TAG_NAME, "body"))
-    )
-    last_height = driver.execute_script("return document.body.scrollHeight")
+    page.wait_for_selector("body")
 
+    # Scroll to the bottom to ensure all lazy-loaded items are present.
+    last_height = page.evaluate("document.body.scrollHeight")
     while True:
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         time.sleep(2)
-        new_height = driver.execute_script("return document.body.scrollHeight")
+        new_height = page.evaluate("document.body.scrollHeight")
         if new_height == last_height:
             break
         last_height = new_height
 
-    rows = driver.find_elements(By.XPATH, "//tbody/tr")
+    rows = page.query_selector_all("xpath=//tbody/tr")
     base_download_url = base_url.replace("0:", "0:down")
-    return [
-        f"{base_download_url}{row.find_element(By.TAG_NAME, 'td').get_attribute('title')}"
-        for row in rows
-    ]
+    links: List[str] = []
+    for row in rows:
+        td = row.query_selector("td")
+        if td:
+            title = td.get_attribute("title")
+            if title:
+                links.append(f"{base_download_url}{title}")
+
+    return links
 
 
-def _extract_gdindex_links(driver: webdriver.Chrome) -> List[str]:
+def _extract_gdindex_links(page: Page) -> List[str]:
     """
     Extracts links from GDIndex pages.
 
     Args:
-        driver (webdriver.Chrome): The Selenium WebDriver instance.
+        page (Page): The Playwright Page instance.
 
     Returns:
         List[str]: Extracted links.
     """
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.TAG_NAME, "body"))
-    )
-    links = driver.find_elements(By.XPATH, "//a")
+    page.wait_for_selector("body")
+    anchors = page.query_selector_all("xpath=//a")
     return [
-        link.get_attribute("href")
-        for link in links
-        if link.get_attribute("href").endswith(("rar", "zip"))
+        a.get_attribute("href")
+        for a in anchors
+        if a.get_attribute("href") and a.get_attribute("href").endswith(("rar", "zip"))
     ]
 
 
-def _extract_onedrive_links(driver: webdriver.Chrome, base_url: str) -> List[str]:
+def _extract_onedrive_links(page: Page, base_url: str) -> List[str]:
     """
     Extracts links from OneDrive pages.
 
     Args:
-        driver (webdriver.Chrome): The Selenium WebDriver instance.
+        page (Page): The Playwright Page instance.
         base_url (str): Base URL of the OneDrive page.
 
     Returns:
         List[str]: Extracted links.
     """
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "col-span-12"))
-    )
-    elements = driver.find_elements(
-        By.XPATH, "//a[@class='col-span-12 md:col-span-10']"
-    )
-    return [
-        element.get_attribute("href").replace(
-            urlparse(element.get_attribute("href")).netloc,
-            urlparse(element.get_attribute("href")).netloc + "/api/raw/?path=",
-        )
-        for element in elements
-        if not element.get_attribute("href").endswith("/")
-    ]
+    page.wait_for_selector(".col-span-12")
+    elements = page.query_selector_all("xpath=//a[@class='col-span-12 md:col-span-10']")
+
+    processed: List[str] = []
+    for el in elements:
+        href = el.get_attribute("href")
+        if href and not href.endswith("/"):
+            processed.append(
+                href.replace(
+                    urlparse(href).netloc,
+                    urlparse(href).netloc + "/api/raw/?path=",
+                )
+            )
+
+    return processed
 
 
 def download_and_process_file(

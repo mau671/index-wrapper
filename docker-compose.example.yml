@@ -14,10 +14,10 @@ services:
       - TZ=America/Costa_Rica
       - HTTP_USER=example_user
       - HTTP_PASSWORD=example_password
-      - DB_TYPE=ExampleDB
-      - DB_URL=https://example.supabase.co
+      - DB_TYPE=Supabase
+      - SUPABASE_URL=https://example.supabase.co
+      - SUPABASE_KEY=example_service_role_key
       - DB_USER=example_db_user
-      - DB_PASSWORD=example_db_password
       - RCLONE_REMOTE=example_remote
       - RCLONE_OPTIONS=example_options
       - RCLONE_CONFIG=/example/path/to/rclone/config

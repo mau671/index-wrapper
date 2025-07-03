@@ -8,9 +8,16 @@ load_dotenv()
 HTTP_USER = os.getenv("HTTP_USER")
 HTTP_PASSWORD = os.getenv("HTTP_PASSWORD")
 DB_TYPE = os.getenv("DB_TYPE")
-DB_URL = os.getenv("DB_URL")
+
+# Database / Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("DB_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("DB_PASSWORD")
+
+# Backwards-compatibility aliases (scheduled for removal)
+DB_URL = SUPABASE_URL
+DB_PASSWORD = SUPABASE_KEY
 DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
+
 RCLONE_REMOTE = os.getenv("RCLONE_REMOTE")
 RCLONE_CONFIG = os.getenv("RCLONE_CONFIG")
 
