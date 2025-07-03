@@ -1,4 +1,4 @@
-FROM python:3.12-slim as base
+FROM python:3.12-slim AS base
 
 # Install UV
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -49,7 +49,7 @@ COPY . /app
 RUN uv sync --no-cache
 
 # Install Playwright browsers with system deps
-RUN uv run python -m playwright install --with-deps --check
+RUN uv run python -m playwright install --with-deps
 
 # Default entrypoint
 ENTRYPOINT ["uv", "run", "main.py"]
