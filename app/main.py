@@ -153,6 +153,7 @@ def analyze_and_download(
                 base_folder,
                 delete_after,
                 part_files,
+                simultaneous_downloads,
             )
         else:
             handle_progress_multi_line(
@@ -163,6 +164,7 @@ def analyze_and_download(
                 base_folder,
                 delete_after,
                 part_files,
+                simultaneous_downloads,
             )
 
         if part_files:
@@ -198,6 +200,7 @@ def handle_progress_single_line(
     base_folder: str,
     delete_after: bool,
     part_files: Dict[str, str],
+    max_simultaneous: int,
 ) -> None:
     """
     Handles download progress using a single-line progress bar.
@@ -224,6 +227,7 @@ def handle_progress_single_line(
             base_folder,
             delete_after,
             part_files,
+            max_simultaneous,
         )
 
 
@@ -235,6 +239,7 @@ def handle_progress_multi_line(
     base_folder: str,
     delete_after: bool,
     part_files: Dict[str, str],
+    max_simultaneous: int,
 ) -> None:
     """
     Handles download progress using a multi-line progress bar.
@@ -263,6 +268,7 @@ def handle_progress_multi_line(
             base_folder,
             delete_after,
             part_files,
+            max_simultaneous,
         )
 
 
@@ -275,6 +281,7 @@ def handle_tasks(
     base_folder: str,
     delete_after: bool,
     part_files: Dict[str, str],
+    max_simultaneous: int,
 ) -> None:
     """
     Manages task execution for downloads.
@@ -284,7 +291,7 @@ def handle_tasks(
     """
     tasks = []
     while not download_queue.empty() or any(task.is_alive() for task in tasks):
-        while not download_queue.empty() and len(tasks) < semaphore._value:
+        while not download_queue.empty() and len(tasks) < max_simultaneous:
             url = download_queue.get()
             local_filename = unquote(url.split("/")[-1])
             task_id = progress.add_task(
