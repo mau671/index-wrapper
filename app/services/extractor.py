@@ -2,6 +2,7 @@ from typing import Optional
 from app.config import DB_TYPE
 from app.utils.database import client
 import patoolib
+import os
 
 
 def get_password_from_database(hash_md5: str) -> Optional[str]:
@@ -38,12 +39,13 @@ def save_password_to_database(filename: str, hash_md5: str, password: str) -> No
         ).execute()
 
 
-def obtain_password(file_path: str) -> Optional[str]:
+def obtain_password(file_path: str, verbose: bool = True) -> Optional[str]:
     """
     Attempts to determine the password for a file by testing known passwords.
 
     Args:
         file_path (str): The path to the file.
+        verbose (bool): Whether to print verbose output.
 
     Returns:
         Optional[str]: The correct password if found, otherwise None.
@@ -69,8 +71,14 @@ def obtain_password(file_path: str) -> Optional[str]:
         "80stvseries",
     ]
 
-    for password in passwords:
+    if verbose:
+        print(f"Testing passwords for {os.path.basename(file_path)}...")
+    
+    for i, password in enumerate(passwords, 1):
         try:
+            if verbose:
+                print(f"  [{i}/{len(passwords)}] Trying: {password}", end="", flush=True)
+            
             patoolib.test_archive(
                 file_path,
                 verbosity=-1,
@@ -78,12 +86,22 @@ def obtain_password(file_path: str) -> Optional[str]:
                 interactive=False,
                 password=password,
             )
+            
+            if verbose:
+                print(" ✓ SUCCESS")
             return password
+            
         except patoolib.util.PatoolError:
-            # Catching specific exception for archive testing failure
+            # Password incorrect or archive corrupted
+            if verbose:
+                print(" ✗ Incorrect")
             continue
         except Exception as e:
-            # Log unexpected exceptions
-            print(f"Unexpected error while testing password '{password}': {e}")
+            # Unexpected error
+            if verbose:
+                print(f" ✗ Error: {e}")
             continue
+    
+    if verbose:
+        print(f"No valid password found for {os.path.basename(file_path)}")
     return None
