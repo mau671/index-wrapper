@@ -237,7 +237,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "patool", specifier = ">=3.1.0" },
-    { name = "playwright", specifier = ">=1.45.0" },
+    { name = "playwright", specifier = ">=1.53.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "rclone-python", specifier = ">=0.1.18" },
     { name = "requests", specifier = ">=2.32.3" },
