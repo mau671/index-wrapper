@@ -17,3 +17,4 @@ drivers/
 # Docker configuration
 docker-compose.yml
 docker-compose.yaml
+compose.yaml
