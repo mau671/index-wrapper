@@ -1,24 +1,19 @@
-# Python-generated files
+# Python-generated files and build artifacts
 __pycache__/
 *.py[oc]
+*.egg-info/
 build/
 dist/
 wheels/
-*.egg-info
 
-# Virtual environments
-.venv
-
-# Drivers
-drivers/
-
-# Downloaded files
-data/
-
-# Environment variables
+# Development environment
+.venv/
 .env
 
+# Project-specific directories
+data/
+drivers/
+
+# Docker configuration
 docker-compose.yml
 docker-compose.yaml
-uv.lock
-.python-version
