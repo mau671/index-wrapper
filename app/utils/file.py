@@ -36,9 +36,19 @@ def url_to_folder_path(url, site_type):
     elif site_type == "achrou/goindex":
         path = re.search(r"(?<=0:/).*", parsed_url.path).group(0)
 
+    # Apply URL decoding multiple times to handle double/triple encoding
+    # Keep decoding until no more changes occur
+    previous_path = ""
     path = unquote(path)
+    while path != previous_path:
+        previous_path = path
+        path = unquote(path)
+    
+    # Remove invalid filesystem characters
     invalid_chars = r'<>:"\\|?*'
     path = re.sub(f"[{re.escape(invalid_chars)}]", "", path)
+    
+    # Remove the last segment (filename) to get the directory path
     path = "/".join(path.split("/")[:-1])
 
     return path
