@@ -214,9 +214,10 @@ def _download_file(
     task: Task,
     series_task: Task,
     stop_event: Event,
+    max_retries: int = 3,
 ) -> None:
     """
-    Downloads a file from the given URL.
+    Downloads a file from the given URL with resume capability and retries.
 
     Args:
         url (str): File URL.
@@ -224,25 +225,77 @@ def _download_file(
         progress (Progress): Progress tracker.
         task (Task): Task progress.
         series_task (Task): Series-level progress.
+        stop_event (Event): Event to stop download.
+        max_retries (int): Maximum number of retry attempts.
     """
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-        total_size = int(r.headers.get("content-length", 0))
-        downloaded_size = 0
-        start_time = time.time()
+    for attempt in range(max_retries + 1):
+        try:
+            # Check if file already exists (resume capability)
+            downloaded_size = 0
+            if os.path.exists(download_path):
+                downloaded_size = os.path.getsize(download_path)
+                print(f"Resuming download of {os.path.basename(download_path)} from {downloaded_size} bytes")
 
-        with open(download_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1048576):
-                if stop_event.is_set():
-                    return
-                f.write(chunk)
-                downloaded_size += len(chunk)
-                elapsed_time = time.time() - start_time
-                speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
-                progress.update(
-                    task, completed=downloaded_size, total=total_size, speed=speed
-                )
-                progress.update(series_task, advance=len(chunk))
+            # Set up headers for resume
+            headers = {}
+            if downloaded_size > 0:
+                headers['Range'] = f'bytes={downloaded_size}-'
+
+            # Make request with timeout and retry-friendly settings
+            with requests.get(
+                url, 
+                stream=True, 
+                headers=headers, 
+                timeout=(30, 60),  # (connect timeout, read timeout)
+            ) as r:
+                r.raise_for_status()
+                
+                # Get total size from response
+                content_range = r.headers.get('content-range')
+                if content_range:
+                    # Response format: 'bytes start-end/total'
+                    total_size = int(content_range.split('/')[-1])
+                else:
+                    total_size = int(r.headers.get("content-length", 0)) + downloaded_size
+
+                # Initialize progress tracking
+                start_time = time.time()
+                
+                # Open file in append mode if resuming, write mode if new
+                file_mode = "ab" if downloaded_size > 0 else "wb"
+                
+                with open(download_path, file_mode) as f:
+                    for chunk in r.iter_content(chunk_size=1048576):  # 1MB chunks
+                        if stop_event.is_set():
+                            return
+                        
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+                        
+                        # Calculate speed
+                        elapsed_time = time.time() - start_time
+                        speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
+                        
+                        # Update progress
+                        progress.update(
+                            task, completed=downloaded_size, total=total_size, speed=speed
+                        )
+                        progress.update(series_task, advance=len(chunk))
+
+                # Download completed successfully
+                print(f"✓ Downloaded {os.path.basename(download_path)} successfully")
+                return
+
+        except (requests.exceptions.RequestException, requests.exceptions.ChunkedEncodingError, 
+                requests.exceptions.ConnectionError, OSError) as e:
+            if attempt < max_retries:
+                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                print(f"Download error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                print(f"Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                print(f"Failed to download {os.path.basename(download_path)} after {max_retries + 1} attempts")
+                raise e
 
 
 def _process_rar_file(file_path: str, output_path: str, delete_after: bool) -> None:
