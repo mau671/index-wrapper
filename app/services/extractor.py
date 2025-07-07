@@ -39,12 +39,13 @@ def save_password_to_database(filename: str, hash_md5: str, password: str) -> No
         ).execute()
 
 
-def obtain_password(file_path: str, verbose: bool = True) -> Optional[str]:
+def obtain_password(file_path: str, output_path: str = None, verbose: bool = True) -> Optional[str]:
     """
     Attempts to determine the password for a file by testing known passwords.
 
     Args:
         file_path (str): The path to the file.
+        output_path (str, optional): Directory to extract to. If provided, will extract on success.
         verbose (bool): Whether to print verbose output.
 
     Returns:
@@ -79,23 +80,43 @@ def obtain_password(file_path: str, verbose: bool = True) -> Optional[str]:
             if verbose:
                 print(f"  [{i}/{len(passwords)}] Trying: {password}", end="", flush=True)
             
-            patoolib.test_archive(
-                file_path,
-                verbosity=-1,
-                program="unrar",
-                interactive=False,
-                password=password,
-            )
+            if output_path:
+                # If output_path is provided, try to extract directly
+                try:
+                    os.makedirs(output_path, exist_ok=True)
+                    patoolib.extract_archive(
+                        file_path,
+                        verbosity=-1,
+                        program="unrar",
+                        interactive=False,
+                        outdir=output_path,
+                        password=password,
+                    )
+                    if verbose:
+                        print(" ✓ SUCCESS (extracted)")
+                    return password
+                except patoolib.util.PatoolError:
+                    if verbose:
+                        print(" ✗ Incorrect")
+                    continue
+            else:
+                # Just test the password without extracting
+                try:
+                    patoolib.test_archive(
+                        file_path,
+                        verbosity=-1,
+                        program="unrar",
+                        interactive=False,
+                        password=password,
+                    )
+                    if verbose:
+                        print(" ✓ SUCCESS")
+                    return password
+                except patoolib.util.PatoolError:
+                    if verbose:
+                        print(" ✗ Incorrect")
+                    continue
             
-            if verbose:
-                print(" ✓ SUCCESS")
-            return password
-            
-        except patoolib.util.PatoolError:
-            # Password incorrect or archive corrupted
-            if verbose:
-                print(" ✗ Incorrect")
-            continue
         except Exception as e:
             # Unexpected error
             if verbose:

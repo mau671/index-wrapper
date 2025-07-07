@@ -256,31 +256,28 @@ def _process_rar_file(file_path: str, output_path: str, delete_after: bool) -> N
     """
     hash_md5 = get_hash_md5(file_path)
     password = get_password_from_database(hash_md5)
+    successful_extraction = False
 
-    if not password:
-        password = obtain_password(file_path, verbose=True)
-        if password:
-            save_password_to_database(os.path.basename(file_path), hash_md5, password)
-
+    # Try with password from database first (if exists)
     if password:
-        try:
-            os.makedirs(output_path, exist_ok=True)
-            print(f"Extracting {os.path.basename(file_path)} with password: {password}")
-            patoolib.extract_archive(
-                file_path,
-                verbosity=-1,
-                program="unrar",
-                interactive=False,
-                outdir=output_path,
-                password=password,
-            )
-            print(f"✓ Successfully extracted {os.path.basename(file_path)}")
-        except Exception as e:
-            print(f"✗ Failed to extract {os.path.basename(file_path)}: {e}")
-            return  # Don't delete if extraction failed
-    else:
+        print(f"Trying stored password for {os.path.basename(file_path)}: {password}")
+        if _try_extract_with_password(file_path, output_path, password):
+            print(f"✓ Successfully extracted {os.path.basename(file_path)} with stored password")
+            successful_extraction = True
+        else:
+            print(f"✗ Stored password failed for {os.path.basename(file_path)}")
+
+    # If no stored password or stored password failed, try all known passwords
+    if not successful_extraction:
+        password = obtain_password(file_path, output_path, verbose=True)
+        if password:
+            # Save the working password to database
+            save_password_to_database(os.path.basename(file_path), hash_md5, password)
+            successful_extraction = True
+
+    if not successful_extraction:
         print(f"✗ No valid password found for {os.path.basename(file_path)}")
-        return  # Don't delete if no password found
+        return  # Don't delete if extraction failed
         
     if delete_after:
         try:
@@ -288,3 +285,30 @@ def _process_rar_file(file_path: str, output_path: str, delete_after: bool) -> N
             print(f"Deleted {os.path.basename(file_path)}")
         except Exception as e:
             print(f"Warning: Could not delete {os.path.basename(file_path)}: {e}")
+
+
+def _try_extract_with_password(file_path: str, output_path: str, password: str) -> bool:
+    """
+    Attempts to extract a RAR file with a specific password.
+    
+    Args:
+        file_path (str): Path to the RAR file.
+        output_path (str): Directory to extract to.
+        password (str): Password to try.
+        
+    Returns:
+        bool: True if extraction succeeded, False otherwise.
+    """
+    try:
+        os.makedirs(output_path, exist_ok=True)
+        patoolib.extract_archive(
+            file_path,
+            verbosity=-1,
+            program="unrar",
+            interactive=False,
+            outdir=output_path,
+            password=password,
+        )
+        return True
+    except Exception:
+        return False
