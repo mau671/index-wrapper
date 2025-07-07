@@ -193,17 +193,18 @@ def download_and_process_file(
         download_path = os.path.join(base_folder, local_filename)
 
         os.makedirs(base_folder, exist_ok=True)
-        
+
         # Register this download for cleanup tracking
         from app.main import active_downloads
+
         try:
             # Get expected file size for cleanup tracking
             response = requests.head(url, timeout=10)
-            expected_size = int(response.headers.get('content-length', 0))
+            expected_size = int(response.headers.get("content-length", 0))
             active_downloads[download_path] = expected_size
         except:
             active_downloads[download_path] = 0  # Unknown size
-        
+
         try:
             _download_file(url, download_path, progress, task, series_task, stop_event)
 
@@ -249,76 +250,99 @@ def _download_file(
             downloaded_size = 0
             if os.path.exists(download_path):
                 downloaded_size = os.path.getsize(download_path)
-                print(f"Resuming download of {os.path.basename(download_path)} from {downloaded_size} bytes")
+                print(
+                    f"Resuming download of {os.path.basename(download_path)} from {downloaded_size} bytes"
+                )
 
             # Set up headers for resume
             headers = {}
             if downloaded_size > 0:
-                headers['Range'] = f'bytes={downloaded_size}-'
+                headers["Range"] = f"bytes={downloaded_size}-"
 
             # Make request with timeout and retry-friendly settings
             with requests.get(
-                url, 
-                stream=True, 
-                headers=headers, 
+                url,
+                stream=True,
+                headers=headers,
                 timeout=(30, 60),  # (connect timeout, read timeout)
             ) as r:
                 r.raise_for_status()
-                
+
                 # Get total size from response
-                content_range = r.headers.get('content-range')
+                content_range = r.headers.get("content-range")
                 if content_range:
                     # Response format: 'bytes start-end/total'
-                    total_size = int(content_range.split('/')[-1])
+                    total_size = int(content_range.split("/")[-1])
                 else:
-                    total_size = int(r.headers.get("content-length", 0)) + downloaded_size
+                    total_size = (
+                        int(r.headers.get("content-length", 0)) + downloaded_size
+                    )
 
                 # Initialize progress tracking
                 start_time = time.time()
-                
+
                 # Open file in append mode if resuming, write mode if new
                 file_mode = "ab" if downloaded_size > 0 else "wb"
-                
+
                 with open(download_path, file_mode) as f:
                     chunk_count = 0
-                    for chunk in r.iter_content(chunk_size=65536):  # 64KB chunks for faster cancellation
+                    for chunk in r.iter_content(
+                        chunk_size=65536
+                    ):  # 64KB chunks for faster cancellation
                         if stop_event.is_set():
-                            print(f"🛑 Cancelling download of {os.path.basename(download_path)}")
+                            print(
+                                f"🛑 Cancelling download of {os.path.basename(download_path)}"
+                            )
                             return
-                        
+
                         if chunk:  # Filter out keep-alive chunks
                             f.write(chunk)
                             downloaded_size += len(chunk)
                             chunk_count += 1
-                            
+
                             # Update progress every 16 chunks (1MB) for performance
                             if chunk_count % 16 == 0:
                                 elapsed_time = time.time() - start_time
-                                speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
-                                
+                                speed = (
+                                    downloaded_size / elapsed_time
+                                    if elapsed_time > 0
+                                    else 0
+                                )
+
                                 progress.update(
-                                    task, completed=downloaded_size, total=total_size, speed=speed
+                                    task,
+                                    completed=downloaded_size,
+                                    total=total_size,
+                                    speed=speed,
                                 )
                                 progress.update(series_task, advance=len(chunk) * 16)
-                            
+
                             # Additional check for cancellation during large files
                             if chunk_count % 64 == 0 and stop_event.is_set():
-                                print(f"🛑 Cancelling download of {os.path.basename(download_path)}")
+                                print(
+                                    f"🛑 Cancelling download of {os.path.basename(download_path)}"
+                                )
                                 return
 
                 # Download completed successfully
                 print(f"✓ Downloaded {os.path.basename(download_path)} successfully")
                 return
 
-        except (requests.exceptions.RequestException, requests.exceptions.ChunkedEncodingError, 
-                requests.exceptions.ConnectionError, OSError) as e:
+        except (
+            requests.exceptions.RequestException,
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+            OSError,
+        ) as e:
             if attempt < max_retries:
-                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                wait_time = 2**attempt  # Exponential backoff: 1s, 2s, 4s
                 print(f"Download error (attempt {attempt + 1}/{max_retries + 1}): {e}")
                 print(f"Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
             else:
-                print(f"Failed to download {os.path.basename(download_path)} after {max_retries + 1} attempts")
+                print(
+                    f"Failed to download {os.path.basename(download_path)} after {max_retries + 1} attempts"
+                )
                 raise e
 
 
@@ -339,7 +363,9 @@ def _process_rar_file(file_path: str, output_path: str, delete_after: bool) -> N
     if password:
         print(f"Trying stored password for {os.path.basename(file_path)}: {password}")
         if _try_extract_with_password(file_path, output_path, password):
-            print(f"✓ Successfully extracted {os.path.basename(file_path)} with stored password")
+            print(
+                f"✓ Successfully extracted {os.path.basename(file_path)} with stored password"
+            )
             successful_extraction = True
         else:
             print(f"✗ Stored password failed for {os.path.basename(file_path)}")
@@ -355,7 +381,7 @@ def _process_rar_file(file_path: str, output_path: str, delete_after: bool) -> N
     if not successful_extraction:
         print(f"✗ No valid password found for {os.path.basename(file_path)}")
         return  # Don't delete if extraction failed
-        
+
     if delete_after:
         try:
             os.remove(file_path)
@@ -367,12 +393,12 @@ def _process_rar_file(file_path: str, output_path: str, delete_after: bool) -> N
 def _try_extract_with_password(file_path: str, output_path: str, password: str) -> bool:
     """
     Attempts to extract a RAR file with a specific password.
-    
+
     Args:
         file_path (str): Path to the RAR file.
         output_path (str): Directory to extract to.
         password (str): Password to try.
-        
+
     Returns:
         bool: True if extraction succeeded, False otherwise.
     """

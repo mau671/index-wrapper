@@ -43,11 +43,11 @@ def url_to_folder_path(url, site_type):
     while path != previous_path:
         previous_path = path
         path = unquote(path)
-    
+
     # Remove invalid filesystem characters
     invalid_chars = r'<>:"\\|?*'
     path = re.sub(f"[{re.escape(invalid_chars)}]", "", path)
-    
+
     # Remove the last segment (filename) to get the directory path
     path = "/".join(path.split("/")[:-1])
 

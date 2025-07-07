@@ -34,7 +34,7 @@ from app.services.extractor import (
 # Global variables to handle script interruption
 stop_event = Event()
 active_downloads = {}  # Track active downloads for cleanup
-active_threads = []    # Track active threads for proper shutdown
+active_threads = []  # Track active threads for proper shutdown
 
 
 def handle_exit(signal: int, frame: Optional[object]) -> None:
@@ -47,16 +47,16 @@ def handle_exit(signal: int, frame: Optional[object]) -> None:
     """
     print("\n🛑 Interrupt received! Stopping downloads...")
     stop_event.set()
-    
+
     # Wait for threads to finish (with timeout)
     print("⏳ Waiting for active downloads to stop...")
     for thread in active_threads:
         if thread.is_alive():
             thread.join(timeout=5)  # Wait max 5 seconds per thread
-    
+
     # Clean up incomplete downloads
     cleanup_partial_files()
-    
+
     print("✅ Cleanup completed. Exiting...")
     exit(0)
 
@@ -76,7 +76,7 @@ def cleanup_partial_files():
                     cleaned_files += 1
         except Exception as e:
             print(f"⚠️  Could not remove {file_path}: {e}")
-    
+
     if cleaned_files > 0:
         print(f"🧹 Cleaned up {cleaned_files} incomplete download(s)")
     active_downloads.clear()
@@ -333,11 +333,11 @@ def handle_tasks(
                 if task.is_alive():
                     task.join(timeout=3)
             break
-            
+
         while not download_queue.empty() and len(tasks) < max_simultaneous:
             if stop_event.is_set():
                 break
-                
+
             url = download_queue.get()
             local_filename = unquote(url.split("/")[-1])
             task_id = progress.add_task(

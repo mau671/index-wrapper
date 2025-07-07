@@ -39,7 +39,9 @@ def save_password_to_database(filename: str, hash_md5: str, password: str) -> No
         ).execute()
 
 
-def obtain_password(file_path: str, output_path: str = None, verbose: bool = True) -> Optional[str]:
+def obtain_password(
+    file_path: str, output_path: str = None, verbose: bool = True
+) -> Optional[str]:
     """
     Attempts to determine the password for a file by testing known passwords.
 
@@ -74,12 +76,14 @@ def obtain_password(file_path: str, output_path: str = None, verbose: bool = Tru
 
     if verbose:
         print(f"Testing passwords for {os.path.basename(file_path)}...")
-    
+
     for i, password in enumerate(passwords, 1):
         try:
             if verbose:
-                print(f"  [{i}/{len(passwords)}] Trying: {password}", end="", flush=True)
-            
+                print(
+                    f"  [{i}/{len(passwords)}] Trying: {password}", end="", flush=True
+                )
+
             if output_path:
                 # If output_path is provided, try to extract directly
                 try:
@@ -116,13 +120,13 @@ def obtain_password(file_path: str, output_path: str = None, verbose: bool = Tru
                     if verbose:
                         print(" ✗ Incorrect")
                     continue
-            
+
         except Exception as e:
             # Unexpected error
             if verbose:
                 print(f" ✗ Error: {e}")
             continue
-    
+
     if verbose:
         print(f"No valid password found for {os.path.basename(file_path)}")
     return None
