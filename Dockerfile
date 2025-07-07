@@ -46,10 +46,10 @@ WORKDIR /app
 COPY . /app
 
 # Install Python dependencies
-RUN uv sync --no-cache
+RUN uv sync --locked
 
 # Install Playwright browsers with system deps
-RUN uv run python -m playwright install --with-deps
+RUN uv run python -m playwright install chromium --with-deps
 
 # Default entrypoint
-ENTRYPOINT ["uv", "run", "main.py"]
+ENTRYPOINT ["uv", "run", "-m", "app.main"]

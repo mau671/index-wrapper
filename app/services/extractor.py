@@ -1,6 +1,6 @@
 from typing import Optional
-from config import DB_TYPE
-from utils.database import client
+from app.config import DB_TYPE
+from app.utils.database import client
 import patoolib
 
 

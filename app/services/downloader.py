@@ -9,9 +9,9 @@ from rich.progress import Progress, Task
 from typing import List, Dict
 from threading import Event
 
-from config import HTTP_USER, HTTP_PASSWORD
-from utils.file import is_parted, get_hash_md5
-from services.extractor import (
+from app.config import HTTP_USER, HTTP_PASSWORD
+from app.utils.file import is_parted, get_hash_md5
+from app.services.extractor import (
     get_password_from_database,
     save_password_to_database,
     obtain_password,

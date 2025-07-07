@@ -1,5 +1,5 @@
 import rclone_python as rclone
-from config import RCLONE_REMOTE, RCLONE_CONFIG
+from app.config import RCLONE_REMOTE, RCLONE_CONFIG
 
 
 def upload_file(path, group_name="TK"):

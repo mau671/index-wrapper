@@ -3,6 +3,8 @@
 docker-compose.example.yml
 docker-compose.yml
 Dockerfile
+compose.yaml
+.github/
 
 # Environment variables
 .env

@@ -22,10 +22,10 @@ from queue import Queue
 from typing import List, Dict, Optional, Tuple
 
 # Service and utility imports
-from services.uploader import upload_file
-from services.downloader import analyze_link, download_and_process_file
-from utils.file import url_to_folder_path, get_hash_md5
-from services.extractor import (
+from app.services.uploader import upload_file
+from app.services.downloader import analyze_link, download_and_process_file
+from app.utils.file import url_to_folder_path, get_hash_md5
+from app.services.extractor import (
     get_password_from_database,
     save_password_to_database,
     obtain_password,
@@ -392,6 +392,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--delete-after",
         action="store_true",
+        default=False,
         help="Delete the original file after decompression",
     )
     parser.add_argument(

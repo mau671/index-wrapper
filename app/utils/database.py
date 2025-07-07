@@ -1,5 +1,5 @@
 from supabase import create_client
-from config import DB_TYPE, SUPABASE_URL, SUPABASE_KEY
+from app.config import DB_TYPE, SUPABASE_URL, SUPABASE_KEY
 
 
 def initialize_client():
