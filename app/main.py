@@ -31,8 +31,10 @@ from app.services.extractor import (
     obtain_password,
 )
 
-# Global variable to handle script interruption
+# Global variables to handle script interruption
 stop_event = Event()
+active_downloads = {}  # Track active downloads for cleanup
+active_threads = []    # Track active threads for proper shutdown
 
 
 def handle_exit(signal: int, frame: Optional[object]) -> None:
@@ -43,9 +45,41 @@ def handle_exit(signal: int, frame: Optional[object]) -> None:
         signal (int): Signal number.
         frame (Optional[object]): Current stack frame (unused).
     """
+    print("\n🛑 Interrupt received! Stopping downloads...")
     stop_event.set()
-    print("\nCancelling downloads and exiting the program...")
+    
+    # Wait for threads to finish (with timeout)
+    print("⏳ Waiting for active downloads to stop...")
+    for thread in active_threads:
+        if thread.is_alive():
+            thread.join(timeout=5)  # Wait max 5 seconds per thread
+    
+    # Clean up incomplete downloads
+    cleanup_partial_files()
+    
+    print("✅ Cleanup completed. Exiting...")
     exit(0)
+
+
+def cleanup_partial_files():
+    """
+    Removes partial download files that were interrupted.
+    """
+    cleaned_files = 0
+    for file_path, expected_size in active_downloads.items():
+        try:
+            if os.path.exists(file_path):
+                actual_size = os.path.getsize(file_path)
+                if actual_size < expected_size:
+                    os.remove(file_path)
+                    print(f"🗑️  Removed incomplete file: {os.path.basename(file_path)}")
+                    cleaned_files += 1
+        except Exception as e:
+            print(f"⚠️  Could not remove {file_path}: {e}")
+    
+    if cleaned_files > 0:
+        print(f"🧹 Cleaned up {cleaned_files} incomplete download(s)")
+    active_downloads.clear()
 
 
 def parse_filter_range(filter_value: str) -> Tuple[int, int]:
@@ -291,7 +325,19 @@ def handle_tasks(
     """
     tasks = []
     while not download_queue.empty() or any(task.is_alive() for task in tasks):
+        # Check for stop event
+        if stop_event.is_set():
+            print("🛑 Stop signal received, waiting for active downloads to finish...")
+            # Wait for current downloads to finish or timeout
+            for task in tasks:
+                if task.is_alive():
+                    task.join(timeout=3)
+            break
+            
         while not download_queue.empty() and len(tasks) < max_simultaneous:
+            if stop_event.is_set():
+                break
+                
             url = download_queue.get()
             local_filename = unquote(url.split("/")[-1])
             task_id = progress.add_task(
@@ -314,11 +360,13 @@ def handle_tasks(
                     stop_event,
                 ),
             )
+            task_thread.daemon = True  # Allow main program to exit
             task_thread.start()
             tasks.append(task_thread)
+            active_threads.append(task_thread)  # Track for cleanup
 
         tasks = [task for task in tasks if task.is_alive()]
-        time.sleep(1)
+        time.sleep(0.5)  # Reduced sleep for more responsive cancellation
 
 
 def process_part_files(

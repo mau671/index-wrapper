@@ -193,13 +193,28 @@ def download_and_process_file(
         download_path = os.path.join(base_folder, local_filename)
 
         os.makedirs(base_folder, exist_ok=True)
-        _download_file(url, download_path, progress, task, series_task, stop_event)
+        
+        # Register this download for cleanup tracking
+        from app.main import active_downloads
+        try:
+            # Get expected file size for cleanup tracking
+            response = requests.head(url, timeout=10)
+            expected_size = int(response.headers.get('content-length', 0))
+            active_downloads[download_path] = expected_size
+        except:
+            active_downloads[download_path] = 0  # Unknown size
+        
+        try:
+            _download_file(url, download_path, progress, task, series_task, stop_event)
 
-        if is_parted(local_filename):
-            part_files[local_filename] = download_path
-            print(f"Part file added: {local_filename}")
-        elif local_filename.endswith(".rar"):
-            _process_rar_file(download_path, base_folder, delete_after)
+            if is_parted(local_filename):
+                part_files[local_filename] = download_path
+                print(f"Part file added: {local_filename}")
+            elif local_filename.endswith(".rar"):
+                _process_rar_file(download_path, base_folder, delete_after)
+        finally:
+            # Remove from active downloads when done (success or failure)
+            active_downloads.pop(download_path, None)
     except Exception as e:
         print(f"Error downloading or processing {local_filename}: {e}")
     finally:
@@ -265,22 +280,31 @@ def _download_file(
                 file_mode = "ab" if downloaded_size > 0 else "wb"
                 
                 with open(download_path, file_mode) as f:
-                    for chunk in r.iter_content(chunk_size=1048576):  # 1MB chunks
+                    chunk_count = 0
+                    for chunk in r.iter_content(chunk_size=65536):  # 64KB chunks for faster cancellation
                         if stop_event.is_set():
+                            print(f"🛑 Cancelling download of {os.path.basename(download_path)}")
                             return
                         
-                        f.write(chunk)
-                        downloaded_size += len(chunk)
-                        
-                        # Calculate speed
-                        elapsed_time = time.time() - start_time
-                        speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
-                        
-                        # Update progress
-                        progress.update(
-                            task, completed=downloaded_size, total=total_size, speed=speed
-                        )
-                        progress.update(series_task, advance=len(chunk))
+                        if chunk:  # Filter out keep-alive chunks
+                            f.write(chunk)
+                            downloaded_size += len(chunk)
+                            chunk_count += 1
+                            
+                            # Update progress every 16 chunks (1MB) for performance
+                            if chunk_count % 16 == 0:
+                                elapsed_time = time.time() - start_time
+                                speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
+                                
+                                progress.update(
+                                    task, completed=downloaded_size, total=total_size, speed=speed
+                                )
+                                progress.update(series_task, advance=len(chunk) * 16)
+                            
+                            # Additional check for cancellation during large files
+                            if chunk_count % 64 == 0 and stop_event.is_set():
+                                print(f"🛑 Cancelling download of {os.path.basename(download_path)}")
+                                return
 
                 # Download completed successfully
                 print(f"✓ Downloaded {os.path.basename(download_path)} successfully")
