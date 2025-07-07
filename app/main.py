@@ -360,7 +360,8 @@ def process_part_files(
             os.remove(first_part)
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the application."""
     # Handle SIGINT (Ctrl+C) gracefully to terminate the script
     signal.signal(signal.SIGINT, handle_exit)
 
@@ -447,3 +448,7 @@ if __name__ == "__main__":
         filter_range=args.filter,  # File range to download
         base_folder=args.base_folder,  # Base folder for downloading and processing files
     )
+
+
+if __name__ == "__main__":
+    main()
